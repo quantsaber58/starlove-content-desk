@@ -1,0 +1,12 @@
+name = "starlove-stage"
+main = "src/index.js"
+compatibility_date = "2024-11-01"
+
+# Single Durable Object holds the live command stream the audience polls.
+[[durable_objects.bindings]]
+name = "STAGE"
+class_name = "Stage"
+
+[[migrations]]
+tag = "v1"
+new_sqlite_classes = ["Stage"]
