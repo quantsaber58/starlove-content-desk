@@ -1,7 +1,9 @@
-/* Starlove live-stage broadcast bus.
-   Backstage POSTs director commands to /command; every visitor's stage polls /poll and
-   applies new commands — so the whole audience sees the same live production.
-   Backed by one Durable Object (strongly consistent, no KV write-rate limits). */
+/* Content Desk stage worker.
+   One Durable Object holds the draft deck, review-action queue, chunked media relay,
+   ops timeline, and an agent chat relay — strongly consistent, no KV write-rate limits.
+   Secrets: AGENT_KEY (pollers/bridges), OPS_KEY (optional write-only ops logging),
+   DESK_PASS (operator passphrase for the browser UI — set it or the UI routes fall
+   back to origin-gating only). Edit OK_ORIGIN to your domain. */
 
 const CORS = {
   "Access-Control-Allow-Origin": "*",
@@ -19,14 +21,14 @@ export default {
 
 const OK_ORIGIN = (req) => {
   const o = req.headers.get("origin") || req.headers.get("referer") || "";
-  return /(^|\/\/)(starlovexp\.com|[a-z0-9-]+\.pages\.dev|localhost(:\d+)?)/i.test(o);
+  return /(^|\/\/)(yourdomain\.com|[a-z0-9-]+\.pages\.dev|localhost(:\d+)?)/i.test(o);
 };
 
 export class Stage {
   constructor(state, env) {
     this.state = state; this.env = env; this.seq = 0; this.recent = []; this.featured = "";
-    this.agSeq = 0; this.agIn = []; this.agOut = [];   // agent chat relay: inbound (→VM) / outbound (→backstage)
-    this.opsSeq = 0; this.opsLog = [];                 // exec ops log (backoffice timeline)
+    this.agSeq = 0; this.agIn = []; this.agOut = [];   // agent chat relay: inbound (→content box) / outbound (→UI)
+    this.opsSeq = 0; this.opsLog = [];                 // ops log (backoffice timeline)
     this.deskItems = {}; this.deskActSeq = 0; this.deskActions = []; this.deskMedia = [];  // content desk (drafts + review actions + media inbox)
     state.blockConcurrencyWhile(async () => {
       this.seq = (await state.storage.get("seq")) || 0;
@@ -46,11 +48,14 @@ export class Stage {
   okKey(req) { return this.env.AGENT_KEY && req.headers.get("x-agent-key") === this.env.AGENT_KEY; }
   // ops-only key: lets external tools log work without agent-relay access
   okOpsKey(req) { return this.okKey(req) || (this.env.OPS_KEY && req.headers.get("x-agent-key") === this.env.OPS_KEY); }
+  // operator passphrase for the browser UIs. Until the DESK_PASS secret is set,
+  // this is permissive (origin-gate only) for back-compat.
+  okPass(req) { return !this.env.DESK_PASS || req.headers.get("x-desk-pass") === this.env.DESK_PASS || this.okKey(req); }
   async fetch(req) {
     const url = new URL(req.url);
 
-    /* ---- exec ops log (dispatcher/watchers → backoffice timeline) ---- */
-    // dispatcher / folder watcher → append an event (needs key)
+    /* ---- ops log (dispatchers/watchers → backoffice timeline) ---- */
+    // pipeline tools → append an event (needs key)
     if (url.pathname.endsWith("/ops/log") && req.method === "POST") {
       if (!this.okOpsKey(req)) return json({ error: "forbidden" }, 403);
       const b = await req.json().catch(() => ({}));
@@ -69,13 +74,13 @@ export class Stage {
     }
     // backoffice → read the timeline
     if (url.pathname.endsWith("/ops/feed")) {
-      if (!OK_ORIGIN(req)) return json({ error: "forbidden" }, 403);
+      if (!OK_ORIGIN(req) || !this.okPass(req)) return json({ error: "forbidden" }, 403);
       const since = parseInt(url.searchParams.get("since") || "-1", 10);
       const items = this.opsLog.filter((e) => e.seq > since);
       return json({ seq: this.opsSeq, items });
     }
 
-    /* ---- content desk (draft review deck on /backoffice) ---- */
+    /* ---- content desk (draft review deck) ---- */
     // content box pushes the day's parsed drafts (+ the MEDIA_INBOX file list)
     if (url.pathname.endsWith("/desk/sync") && req.method === "POST") {
       if (!this.okKey(req)) return json({ error: "forbidden" }, 403);
@@ -98,15 +103,15 @@ export class Stage {
       await this.state.storage.put("deskItems", this.deskItems);
       return json({ ok: true, count: Object.keys(this.deskItems).length });
     }
-    // backoffice → the deck (+ media inbox listing)
+    // UI → the deck (+ media inbox listing)
     if (url.pathname.endsWith("/desk/list")) {
-      if (!OK_ORIGIN(req)) return json({ error: "forbidden" }, 403);
+      if (!OK_ORIGIN(req) || !this.okPass(req)) return json({ error: "forbidden" }, 403);
       const items = Object.values(this.deskItems).sort((a, b) => (b.t || 0) - (a.t || 0));
       return json({ items, media: this.deskMedia });
     }
-    // backoffice → queue a review action
+    // UI → queue a review action
     if (url.pathname.endsWith("/desk/action") && req.method === "POST") {
-      if (!OK_ORIGIN(req)) return json({ error: "forbidden" }, 403);
+      if (!OK_ORIGIN(req) || !this.okPass(req)) return json({ error: "forbidden" }, 403);
       const b = await req.json().catch(() => ({}));
       const queueAction = async (extra) => {
         this.deskActSeq++;
@@ -147,7 +152,7 @@ export class Stage {
     }
     // browser → upload a media file in base64 chunks (relayed to the MEDIA_INBOX)
     if (url.pathname.endsWith("/desk/upload") && req.method === "POST") {
-      if (!OK_ORIGIN(req)) return json({ error: "forbidden" }, 403);
+      if (!OK_ORIGIN(req) || !this.okPass(req)) return json({ error: "forbidden" }, 403);
       const b = await req.json().catch(() => ({}));
       const raw = String(b.name || "").replace(/[^\w.\- ]/g, "_");
       const dot = raw.lastIndexOf(".");
@@ -208,23 +213,23 @@ export class Stage {
       const convo = url.searchParams.get("convo") || "backoffice";
       const limit = Math.min(parseInt(url.searchParams.get("limit") || "20", 10), 60);
       const merged = [
-        ...this.agIn.filter((m) => m.convo === convo).map((m) => ({ seq: m.seq, t: m.t, from: "James", to: m.agent, text: m.text })),
+        ...this.agIn.filter((m) => m.convo === convo).map((m) => ({ seq: m.seq, t: m.t, from: "operator", to: m.agent, text: m.text })),
         ...this.agOut.filter((m) => m.convo === convo).map((m) => ({ seq: m.seq, t: m.t, from: m.agent, text: m.text })),
       ].sort((a, b) => a.seq - b.seq);
       // fan-out sends duplicate the operator's text once per recipient — collapse them
       const out = [];
       for (const m of merged) {
         const prev = out[out.length - 1];
-        if (prev && prev.from === "James" && m.from === "James" && prev.text === m.text) continue;
+        if (prev && prev.from === "operator" && m.from === "operator" && prev.text === m.text) continue;
         out.push(m);
       }
       return json({ items: out.slice(-limit) });
     }
 
-    /* ---- agent chat relay (backstage ⇄ content box agent bridge) ---- */
-    // backstage → queue a message for an agent
+    /* ---- agent chat relay (UI ⇄ content box agent bridge) ---- */
+    // UI → queue a message for an agent
     if (url.pathname.endsWith("/agent/send") && req.method === "POST") {
-      if (!OK_ORIGIN(req)) return json({ error: "forbidden" }, 403);
+      if (!OK_ORIGIN(req) || !this.okPass(req)) return json({ error: "forbidden" }, 403);
       const b = await req.json().catch(() => ({}));
       const text = (b.text || "").toString().slice(0, 4000);
       const agent = (b.agent || "wizard").toString();
@@ -257,9 +262,9 @@ export class Stage {
       await this.state.storage.put("agOut", this.agOut);
       return json({ seq: this.agSeq });
     }
-    // backstage → poll for replies
+    // UI → poll for replies
     if (url.pathname.endsWith("/agent/replies")) {
-      if (!OK_ORIGIN(req)) return json({ error: "forbidden" }, 403);
+      if (!OK_ORIGIN(req) || !this.okPass(req)) return json({ error: "forbidden" }, 403);
       const since = parseInt(url.searchParams.get("since") || "-1", 10);
       const convo = url.searchParams.get("convo");
       const items = this.agOut.filter((m) => m.seq > since && (!convo || m.convo === convo));
@@ -274,7 +279,7 @@ export class Stage {
 
     if (url.pathname.endsWith("/command") && req.method === "POST") {
       const origin = req.headers.get("origin") || req.headers.get("referer") || "";
-      if (!/(^|\/\/)(starlovexp\.com|[a-z0-9-]+\.pages\.dev|localhost(:\d+)?)/i.test(origin))
+      if (!/(^|\/\/)(yourdomain\.com|[a-z0-9-]+\.pages\.dev|localhost(:\d+)?)/i.test(origin))
         return json({ error: "forbidden" }, 403);
       const body = await req.json().catch(() => ({}));
       if (!body.cmd) return json({ error: "no cmd" }, 400);
@@ -289,7 +294,7 @@ export class Stage {
     if (url.pathname.endsWith("/featured")) {
       if (req.method === "POST") {
         const origin = req.headers.get("origin") || req.headers.get("referer") || "";
-        if (!/(^|\/\/)(starlovexp\.com|[a-z0-9-]+\.pages\.dev|localhost(:\d+)?)/i.test(origin))
+        if (!/(^|\/\/)(yourdomain\.com|[a-z0-9-]+\.pages\.dev|localhost(:\d+)?)/i.test(origin))
           return json({ error: "forbidden" }, 403);
         const b = await req.json().catch(() => ({}));
         this.featured = (b.file || "").toString();
