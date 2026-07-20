@@ -3,8 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>S.S. Starlove XP · Backoffice</title>
-<link rel="icon" type="image/png" href="/favicon.png" />
+<title>Content Desk</title>
 <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@500;700;900&amp;family=Inter:wght@400;500;600&amp;family=JetBrains+Mono:wght@400;500&amp;display=swap" rel="stylesheet" />
 <style>
   :root{--bg:#05060d;--panel:rgba(14,18,34,.78);--edge:rgba(120,160,255,.22);--edge-hot:rgba(120,180,255,.55);
@@ -66,17 +65,16 @@
 </div>
 
 <header>
-  <div class="brand">S.S. <b>STARLOVE</b> XP · BACKOFFICE</div>
+  <div class="brand">CONTENT <b>DESK</b></div>
   <div class="sp">
     <span id="status" style="color:var(--muted)">…</span>
-    <a href="/backstage/">backstage ↗</a>
     <button id="logout">⎋ lock</button>
   </div>
 </header>
 
 <div class="wrap">
   <div class="card">
-    <h3>🧙 Content Desk — review &amp; publish <span id="deskCount" style="margin-left:auto;font-size:10px;color:var(--dim)"></span></h3>
+    <h3>Content Desk — review &amp; publish <span id="deskCount" style="margin-left:auto;font-size:10px;color:var(--dim)"></span></h3>
     <div id="deck" style="padding:14px">loading the deck…</div>
     <input type="file" id="deskFile" accept="image/png,image/jpeg,image/gif,image/webp,video/mp4,video/quicktime" multiple
       style="display:none" onchange="deskUpload([...this.files]);this.value='';" />
@@ -89,9 +87,9 @@
     <h3>Team chat — notes &amp; coaching <span style="font-size:10px;color:var(--dim);font-weight:400">· live brains</span></h3>
     <div id="chatLog" style="height:260px;overflow:auto;padding:12px;display:flex;flex-direction:column;gap:8px;font-size:13px;line-height:1.45"></div>
     <div id="chatWho" style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;padding:0 12px 8px">
-      <label class="crewpick" style="--c:#f5e9c8"><input type="checkbox" value="gnoss" checked>🦁 Boss Gnoss</label>
-      <label class="crewpick" style="--c:#a78bfa"><input type="checkbox" value="wizard">🧙‍♂️ Chief Wizard</label>
-      <label class="crewpick" style="--c:#34d399"><input type="checkbox" value="raja">🩺 Dr Raja</label>
+      <label class="crewpick" style="--c:#f5e9c8"><input type="checkbox" value="gnoss" checked>Agent A</label>
+      <label class="crewpick" style="--c:#a78bfa"><input type="checkbox" value="wizard">Agent B</label>
+      <label class="crewpick" style="--c:#34d399"><input type="checkbox" value="raja">Agent C</label>
       <button id="allBtn" style="padding:5px 10px;font-size:9px">✓ ALL</button>
     </div>
     <div style="display:flex;gap:6px;padding:0 12px 12px">
@@ -101,8 +99,7 @@
     </div>
     <div class="hint" style="font-size:11px;color:var(--dim);padding:0 12px 12px;line-height:1.5">
       Check one or more crew — the message goes to each; replies come back tagged.
-      Gnoss answers from the Mac (local Ollama, full soul); Wizard &amp; Dr Raja from their OpenClaw brains on the VM.
-      Wizard and Raja keep conversation memory — prompt notes stick to this convo.</div>
+      Rename the crew checkboxes + CHAT_N/CHAT_C maps below to your own agents — any bridge that answers on the worker relay works.</div>
   </div>
 </div>
 
@@ -112,24 +109,26 @@
 
 <script>
 /* same gate as backstage — one passphrase for both rooms */
-const PASS="starlove-bridge";
+const PASS="change-me";   // client fallback only — set the DESK_PASS worker secret for real auth
 const gate=document.getElementById('gate');
-function unlock(){gate.classList.add('hide'); localStorage.setItem('bs_ok','1');}
+function unlock(pass){gate.classList.add('hide'); localStorage.setItem('bs_ok','1'); if(pass)localStorage.setItem('bs_pass',pass);}
 if(localStorage.getItem('bs_ok')==='1') unlock();
 async function tryEnter(){
   const inp=document.getElementById('pass'); const v=inp.value;
   try{
     const r=await fetch('/api/bsauth',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({pass:v})});
-    if(r.status===503){ if(v===PASS) return unlock(); }
-    else { const d=await r.json().catch(()=>({})); if(d.ok) return unlock(); }
-  }catch(e){ if(v===PASS) return unlock(); }
+    if(r.status===503){ if(v===PASS) return unlock(v); }
+    else { const d=await r.json().catch(()=>({})); if(d.ok) return unlock(v); }
+  }catch(e){ if(v===PASS) return unlock(v); }
   inp.value=''; inp.placeholder='wrong — try again';
 }
 document.getElementById('enter').onclick=tryEnter;
 document.getElementById('pass').addEventListener('keydown',e=>{if(e.key==='Enter')tryEnter();});
-document.getElementById('logout').onclick=()=>{ localStorage.removeItem('bs_ok'); location.reload(); };
+document.getElementById('logout').onclick=()=>{ localStorage.removeItem('bs_ok'); localStorage.removeItem('bs_pass'); location.reload(); };
 
-const LIVE="https://starlove-stage.devinohms.workers.dev";
+/* ===== CONFIG — edit these for your deployment ===== */
+const LIVE="https://YOUR-WORKER.YOUR-SUBDOMAIN.workers.dev";   // your deployed worker
+function LFETCH(url,opts={}){opts.headers=Object.assign({"x-desk-pass":localStorage.getItem("bs_pass")||""},opts.headers||{});return fetch(url,opts);}
 const ACTOR_C={"Boss Gnoss":"#f5e9c8","Chief Wizard":"#a78bfa","Grok Build":"#38bdf8","Admiral Harmony":"#38bdf8"};
 const ICON={dispatched:"📤",replied:"💬",skipped:"⏭",failed:"⚠️",image_created:"🖼",video_created:"🎬",test:"🧪"};
 const STAGES=[["dispatched","DISPATCH"],["replied","WIZARD"],["image_created","IMAGE"],["video_created","VIDEO"]];
@@ -171,7 +170,7 @@ function render(){
 }
 async function poll(){
   try{
-    const r=await fetch(LIVE+'/ops/feed?since='+since);
+    const r=await LFETCH(LIVE+'/ops/feed?since='+since);
     const d=await r.json();
     for(const e of (d.items||[])){ since=Math.max(since,e.seq); events.push(e); }
     document.getElementById('status').textContent='live · '+events.length+' events';
@@ -182,7 +181,7 @@ setInterval(poll,5000); poll().then(render);
 
 /* ---- team chat (agent relay: gnoss → Mac bridge, wizard → VM bridge) ---- */
 const CHAT_C={gnoss:"#f5e9c8",wizard:"#a78bfa",raja:"#34d399"};
-const CHAT_N={gnoss:"Boss Gnoss",wizard:"Chief Wizard",raja:"Dr Raja"};
+const CHAT_N={gnoss:"Agent A",wizard:"Agent B",raja:"Agent C"};   // your agent display names
 const THINK={gnoss:"🦁 the lion considers…",wizard:"✦ consulting the stars…",raja:"🩺 reviewing the charts…"};
 const chatLog=document.getElementById('chatLog'), chatIn=document.getElementById('chatIn');
 let chatSince=-1;
@@ -201,7 +200,7 @@ async function chatSend(){
   for(const who of crew){
     const think=cpush(CHAT_N[who],THINK[who],CHAT_C[who],'thinking',who);
     try{
-      const r=await fetch(LIVE+'/agent/send',{method:'POST',headers:{'Content-Type':'application/json'},
+      const r=await LFETCH(LIVE+'/agent/send',{method:'POST',headers:{'Content-Type':'application/json'},
         body:JSON.stringify({agent:who,convo:chatConvo,text:t})});
       if(!r.ok) throw 0;
     }catch(e){ think.remove(); cpush('(error)','could not reach '+CHAT_N[who],'#f87171'); }
@@ -209,7 +208,7 @@ async function chatSend(){
 }
 async function chatPoll(){
   try{
-    const r=await fetch(LIVE+'/agent/replies?convo='+chatConvo+'&since='+chatSince);
+    const r=await LFETCH(LIVE+'/agent/replies?convo='+chatConvo+'&since='+chatSince);
     const d=await r.json();
     for(const m of (d.items||[])){ chatSince=Math.max(chatSince,m.seq);
       const th=chatLog.querySelector(`.thinking[data-agent="${m.agent}"]`)||chatLog.querySelector('.thinking');
@@ -256,7 +255,7 @@ function deskDeleteMediaIdx(mi){
   if(!confirm(`Delete ${m.name} from the media inbox?\n(It moves to MEDIA_INBOX/trash — recoverable.)`)) return;
   deskMediaList.splice(mi,1);
   deskItems.forEach(i=>{ if(i.media) i.media=i.media.filter(n=>n!==m.name); });
-  fetch(LIVE+'/desk/action',{method:'POST',headers:{'Content-Type':'application/json'},
+  LFETCH(LIVE+'/desk/action',{method:'POST',headers:{'Content-Type':'application/json'},
     body:JSON.stringify({action:'delete_media',name:m.name})}).catch(()=>{});
   deskRender();
 }
@@ -273,14 +272,14 @@ async function deskUpload(files){
     for(let i=0;i<total-1 && !failed;i+=6){
       const batch=[];
       for(let k=i;k<Math.min(i+6,total-1);k++)
-        batch.push(fetch(LIVE+'/desk/upload',{method:'POST',headers:{'Content-Type':'application/json'},
+        batch.push(LFETCH(LIVE+'/desk/upload',{method:'POST',headers:{'Content-Type':'application/json'},
           body:JSON.stringify({name:f.name,seq:k,total,data:b64(k)})}).then(r=>{if(!r.ok)failed=true;}));
       await Promise.all(batch);
       sent=Math.min(i+6,total-1);
       if(msg())msg().textContent=`⬆ ${f.name}: ${Math.round((sent/total)*100)}%`;
     }
     if(!failed){
-      const r=await fetch(LIVE+'/desk/upload',{method:'POST',headers:{'Content-Type':'application/json'},
+      const r=await LFETCH(LIVE+'/desk/upload',{method:'POST',headers:{'Content-Type':'application/json'},
         body:JSON.stringify({name:f.name,seq:total-1,total,data:b64(total-1)})});
       if(!r.ok) failed=true;
     }
@@ -298,6 +297,7 @@ async function deskUpload(files){
   },3000);
 }
 /* alignment-number posting times (Captain's cadence) */
+/* your posting cadence — [hour24, minute] pairs. Ours are alignment numbers; make them yours. */
 const ALIGN=[[9,9],[10,10],[11,11],[12,12],[13,11],[14,22],[15,33],[16,44],[17,55],[19,7],[20,8],[21,9],[22,10],[23,11]];
 function alignLabel(h,m){ const ap=h<12?'AM':'PM'; const h12=((h+11)%12)+1; return `${h12}:${String(m).padStart(2,'0')} ${ap}`; }
 function takenWhens(exceptId){
@@ -333,7 +333,7 @@ function alignPicker(it){
 }
 async function deskAct(id,action,extra){
   try{
-    await fetch(LIVE+'/desk/action',{method:'POST',headers:{'Content-Type':'application/json'},
+    await LFETCH(LIVE+'/desk/action',{method:'POST',headers:{'Content-Type':'application/json'},
       body:JSON.stringify(Object.assign({id,action},extra||{}))});
   }catch(e){}
   await deskLoad(false);
@@ -446,7 +446,7 @@ function deskResync(){
 }
 async function deskLoad(resetIdx){
   try{
-    const d=await (await fetch(LIVE+'/desk/list')).json();
+    const d=await (await LFETCH(LIVE+'/desk/list')).json();
     deskItems=d.items||[];
     deskMediaList=d.media||[];
     if(resetIdx!==false) deckIdx=0;
