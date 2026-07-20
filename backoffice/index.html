@@ -1,0 +1,468 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>S.S. Starlove XP · Backoffice</title>
+<link rel="icon" type="image/png" href="/favicon.png" />
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@500;700;900&amp;family=Inter:wght@400;500;600&amp;family=JetBrains+Mono:wght@400;500&amp;display=swap" rel="stylesheet" />
+<style>
+  :root{--bg:#05060d;--panel:rgba(14,18,34,.78);--edge:rgba(120,160,255,.22);--edge-hot:rgba(120,180,255,.55);
+    --txt:#cfe0ff;--muted:#7b8bb5;--dim:#52608a;--ok:#34d399;--rec:#ff3b5c;--quant:#fbbf24;}
+  *{box-sizing:border-box}
+  body{margin:0;min-height:100vh;background:radial-gradient(120% 90% at 50% -10%,#0c1430,#05060d 60%);
+    color:var(--txt);font-family:"Inter",system-ui,sans-serif}
+  a{color:var(--quant)}
+  header{display:flex;align-items:center;gap:14px;padding:12px 18px;border-bottom:1px solid var(--edge);
+    background:var(--panel);position:sticky;top:0;z-index:10}
+  .brand{font-family:"Orbitron";font-weight:900;letter-spacing:3px;font-size:16px;color:#eaf1ff}
+  .brand b{color:var(--quant)}
+  header .sp{margin-left:auto;display:flex;gap:14px;align-items:center;font-size:12px}
+  button{font-family:"Orbitron";font-weight:700;font-size:10px;letter-spacing:1px;cursor:pointer;
+    border:1px solid var(--edge);background:rgba(255,255,255,.03);color:var(--txt);padding:8px 12px;
+    border-radius:8px;transition:.15s}
+  button:hover{border-color:var(--edge-hot);background:rgba(120,170,255,.1)}
+  button.go{border-color:var(--ok);color:var(--ok)}
+  .wrap{max-width:960px;margin:0 auto;padding:14px;display:flex;flex-direction:column;gap:14px}
+  .card{border:1px solid var(--edge);border-radius:12px;background:var(--panel);overflow:hidden}
+  .card h3{font-family:"Orbitron";font-weight:700;font-size:11px;letter-spacing:2px;color:var(--muted);
+    margin:0;padding:10px 12px;border-bottom:1px solid var(--edge);text-transform:uppercase;
+    display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+  .chips{display:flex;gap:6px;margin-left:auto}
+  .chip{font-size:9px;letter-spacing:1px;padding:3px 8px;border-radius:20px;border:1px solid var(--edge);color:var(--dim)}
+  .chip.done{border-color:var(--ok);color:var(--ok)}
+  .chip.bad{border-color:var(--rec);color:var(--rec)}
+  .ev{display:flex;gap:10px;padding:10px 12px;border-bottom:1px solid rgba(120,160,255,.08);align-items:baseline}
+  .ev:last-child{border-bottom:0}
+  .ev .tm{font-family:"JetBrains Mono";font-size:10px;color:var(--dim);flex:none;width:74px}
+  .ev .who{font-family:"Orbitron";font-weight:700;font-size:10px;letter-spacing:1px;flex:none;width:110px}
+  .ev .what{flex:1;min-width:0;font-size:12px;line-height:1.5}
+  .ev .act{font-size:10px;letter-spacing:1px;color:var(--muted);text-transform:uppercase;margin-right:6px}
+  .detail{color:#9fb0d8;white-space:pre-wrap;word-break:break-word}
+  .detail.clip{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;cursor:pointer}
+  .detail.clip:hover{color:#cdd6f0}
+  .empty{padding:30px;text-align:center;color:var(--dim);font-size:12px;letter-spacing:1px}
+  .gate{position:fixed;inset:0;z-index:50;display:flex;align-items:center;justify-content:center;
+    background:radial-gradient(120% 90% at 50% -10%,#0c1430,#03040c 70%)}
+  .gate.hide{display:none}
+  .gate .box{text-align:center;padding:30px}
+  .gate .t{font-family:"Orbitron";font-weight:900;letter-spacing:4px;font-size:24px;color:#eaf1ff;margin-bottom:16px}
+  .gate input{font-size:14px;padding:10px 14px;width:220px;text-align:center;background:rgba(3,6,16,.7);
+    color:var(--txt);border:1px solid var(--edge);border-radius:8px}
+  .gate button{margin-top:12px;display:block;width:100%}
+  .crewpick{display:flex;align-items:center;gap:5px;font-size:11px;letter-spacing:.5px;cursor:pointer;
+    border:1px solid var(--edge);border-radius:20px;padding:5px 10px;color:var(--dim);transition:.15s;user-select:none}
+  .crewpick:has(input:checked){border-color:var(--c);color:var(--c);background:rgba(255,255,255,.04)}
+  .crewpick input{accent-color:var(--c);margin:0}
+</style>
+</head>
+<body>
+<div class="gate" id="gate">
+  <div class="box">
+    <div class="t">BACKOFFICE</div>
+    <input id="pass" type="password" placeholder="director passphrase" autocomplete="off" />
+    <button class="go" id="enter">▷ ENTER</button>
+  </div>
+</div>
+
+<header>
+  <div class="brand">S.S. <b>STARLOVE</b> XP · BACKOFFICE</div>
+  <div class="sp">
+    <span id="status" style="color:var(--muted)">…</span>
+    <a href="/backstage/">backstage ↗</a>
+    <button id="logout">⎋ lock</button>
+  </div>
+</header>
+
+<div class="wrap">
+  <div class="card">
+    <h3>🧙 Content Desk — review &amp; publish <span id="deskCount" style="margin-left:auto;font-size:10px;color:var(--dim)"></span></h3>
+    <div id="deck" style="padding:14px">loading the deck…</div>
+    <input type="file" id="deskFile" accept="image/png,image/jpeg,image/gif,image/webp,video/mp4,video/quicktime" multiple
+      style="display:none" onchange="deskUpload([...this.files]);this.value='';" />
+    <div id="deskStrip" style="padding:0 14px 12px;display:flex;flex-wrap:wrap;gap:6px"></div>
+  </div>
+</div>
+
+<div class="wrap">
+  <div class="card">
+    <h3>Team chat — notes &amp; coaching <span style="font-size:10px;color:var(--dim);font-weight:400">· live brains</span></h3>
+    <div id="chatLog" style="height:260px;overflow:auto;padding:12px;display:flex;flex-direction:column;gap:8px;font-size:13px;line-height:1.45"></div>
+    <div id="chatWho" style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;padding:0 12px 8px">
+      <label class="crewpick" style="--c:#f5e9c8"><input type="checkbox" value="gnoss" checked>🦁 Boss Gnoss</label>
+      <label class="crewpick" style="--c:#a78bfa"><input type="checkbox" value="wizard">🧙‍♂️ Chief Wizard</label>
+      <label class="crewpick" style="--c:#34d399"><input type="checkbox" value="raja">🩺 Dr Raja</label>
+      <button id="allBtn" style="padding:5px 10px;font-size:9px">✓ ALL</button>
+    </div>
+    <div style="display:flex;gap:6px;padding:0 12px 12px">
+      <input id="chatIn" placeholder="notes, prompt coaching, orders — sent to every checked member…" autocomplete="off"
+        style="flex:1;background:#0b1022;border:1px solid #2a3250;color:#dfe6ff;border-radius:8px;padding:8px 10px" />
+      <button class="go" id="chatSend">▷ Send</button>
+    </div>
+    <div class="hint" style="font-size:11px;color:var(--dim);padding:0 12px 12px;line-height:1.5">
+      Check one or more crew — the message goes to each; replies come back tagged.
+      Gnoss answers from the Mac (local Ollama, full soul); Wizard &amp; Dr Raja from their OpenClaw brains on the VM.
+      Wizard and Raja keep conversation memory — prompt notes stick to this convo.</div>
+  </div>
+</div>
+
+<div class="wrap" id="jobs">
+  <div class="empty" id="empty">No operations logged yet — the first 10:10 dispatch will appear here.</div>
+</div>
+
+<script>
+/* same gate as backstage — one passphrase for both rooms */
+const PASS="starlove-bridge";
+const gate=document.getElementById('gate');
+function unlock(){gate.classList.add('hide'); localStorage.setItem('bs_ok','1');}
+if(localStorage.getItem('bs_ok')==='1') unlock();
+async function tryEnter(){
+  const inp=document.getElementById('pass'); const v=inp.value;
+  try{
+    const r=await fetch('/api/bsauth',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({pass:v})});
+    if(r.status===503){ if(v===PASS) return unlock(); }
+    else { const d=await r.json().catch(()=>({})); if(d.ok) return unlock(); }
+  }catch(e){ if(v===PASS) return unlock(); }
+  inp.value=''; inp.placeholder='wrong — try again';
+}
+document.getElementById('enter').onclick=tryEnter;
+document.getElementById('pass').addEventListener('keydown',e=>{if(e.key==='Enter')tryEnter();});
+document.getElementById('logout').onclick=()=>{ localStorage.removeItem('bs_ok'); location.reload(); };
+
+const LIVE="https://starlove-stage.devinohms.workers.dev";
+const ACTOR_C={"Boss Gnoss":"#f5e9c8","Chief Wizard":"#a78bfa","Grok Build":"#38bdf8","Admiral Harmony":"#38bdf8"};
+const ICON={dispatched:"📤",replied:"💬",skipped:"⏭",failed:"⚠️",image_created:"🖼",video_created:"🎬",test:"🧪"};
+const STAGES=[["dispatched","DISPATCH"],["replied","WIZARD"],["image_created","IMAGE"],["video_created","VIDEO"]];
+let since=-1; const events=[];
+
+function esc(s){return (s||"").replace(/[&<>]/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[m]));}
+function fmt(t){const d=new Date(t);return d.toLocaleDateString([], {month:'short',day:'numeric'})+' '+d.toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'});}
+function jobTitle(j){
+  const m=(j||"").match(/(\d{4})(\d{2})(\d{2})-(am|pm)/);
+  if(!m) return j||"(untagged)";
+  return `${m[1]}-${m[2]}-${m[3]} · ${m[4]==='am'?'10:10 AM':'10:10 PM'} run`;
+}
+function render(){
+  const byJob={};
+  for(const e of events){ (byJob[e.job||"(untagged)"] ||= []).push(e); }
+  const jobsEl=document.getElementById('jobs');
+  document.getElementById('empty').style.display = events.length ? 'none':'block';
+  // newest job first (by latest event time)
+  const jobs=Object.entries(byJob).sort((a,b)=>b[1][b[1].length-1].t - a[1][a[1].length-1].t);
+  jobsEl.querySelectorAll('.card').forEach(c=>c.remove());
+  for(const [job,evs] of jobs){
+    const have=new Set(evs.map(e=>e.action));
+    const chips=STAGES.map(([k,label])=>{
+      const cls = have.has(k) ? 'done' : (k==='dispatched'&&have.has('skipped')?'done':'');
+      return `<span class="chip ${cls}">${label}</span>`;
+    }).join("") + (have.has('failed')?`<span class="chip bad">FAILED</span>`:"")
+      + (have.has('skipped')?`<span class="chip" style="border-color:var(--quant);color:var(--quant)">SKIPPED</span>`:"");
+    const rows=evs.slice().reverse().map(e=>`
+      <div class="ev">
+        <div class="tm">${fmt(e.t)}</div>
+        <div class="who" style="color:${ACTOR_C[e.actor]||'#cfe0ff'}">${esc(e.actor)}</div>
+        <div class="what"><span class="act">${ICON[e.action]||"•"} ${esc(e.action)}</span>
+          <div class="detail clip" onclick="this.classList.toggle('clip')">${esc(e.detail)}</div></div>
+      </div>`).join("");
+    const card=document.createElement('div'); card.className='card';
+    card.innerHTML=`<h3>${esc(jobTitle(job))}<div class="chips">${chips}</div></h3>${rows}`;
+    jobsEl.appendChild(card);
+  }
+}
+async function poll(){
+  try{
+    const r=await fetch(LIVE+'/ops/feed?since='+since);
+    const d=await r.json();
+    for(const e of (d.items||[])){ since=Math.max(since,e.seq); events.push(e); }
+    document.getElementById('status').textContent='live · '+events.length+' events';
+    if((d.items||[]).length) render();
+  }catch(e){ document.getElementById('status').textContent='⚠ feed offline'; }
+}
+setInterval(poll,5000); poll().then(render);
+
+/* ---- team chat (agent relay: gnoss → Mac bridge, wizard → VM bridge) ---- */
+const CHAT_C={gnoss:"#f5e9c8",wizard:"#a78bfa",raja:"#34d399"};
+const CHAT_N={gnoss:"Boss Gnoss",wizard:"Chief Wizard",raja:"Dr Raja"};
+const THINK={gnoss:"🦁 the lion considers…",wizard:"✦ consulting the stars…",raja:"🩺 reviewing the charts…"};
+const chatLog=document.getElementById('chatLog'), chatIn=document.getElementById('chatIn');
+let chatSince=-1;
+const chatConvo='backoffice';
+function picked(){ return [...document.querySelectorAll('#chatWho input:checked')].map(i=>i.value); }
+function cpush(who,text,c,cls,agent){ const d=document.createElement('div'); if(cls)d.className=cls;
+  if(agent)d.dataset.agent=agent;
+  d.innerHTML=`<b style="color:${c}">${esc(who)}</b> <span style="color:#cdd6f0">${esc(text)}</span>`;
+  chatLog.appendChild(d); chatLog.scrollTop=chatLog.scrollHeight; return d; }
+async function chatSend(){
+  const t=(chatIn.value||'').trim(); if(!t)return;
+  const crew=picked();
+  if(!crew.length){ cpush('(pick someone)','check at least one crew member first','#f87171'); return; }
+  chatIn.value='';
+  cpush('You → '+crew.map(w=>CHAT_N[w]).join(' + '),t,'#9fd0ff');
+  for(const who of crew){
+    const think=cpush(CHAT_N[who],THINK[who],CHAT_C[who],'thinking',who);
+    try{
+      const r=await fetch(LIVE+'/agent/send',{method:'POST',headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({agent:who,convo:chatConvo,text:t})});
+      if(!r.ok) throw 0;
+    }catch(e){ think.remove(); cpush('(error)','could not reach '+CHAT_N[who],'#f87171'); }
+  }
+}
+async function chatPoll(){
+  try{
+    const r=await fetch(LIVE+'/agent/replies?convo='+chatConvo+'&since='+chatSince);
+    const d=await r.json();
+    for(const m of (d.items||[])){ chatSince=Math.max(chatSince,m.seq);
+      const th=chatLog.querySelector(`.thinking[data-agent="${m.agent}"]`)||chatLog.querySelector('.thinking');
+      if(th)th.remove();
+      cpush(CHAT_N[m.agent]||m.agent,m.text,CHAT_C[m.agent]||'#cfe0ff'); }
+  }catch(e){}
+}
+document.getElementById('allBtn').onclick=()=>{
+  const boxes=[...document.querySelectorAll('#chatWho input')];
+  const on=boxes.every(b=>b.checked);
+  boxes.forEach(b=>b.checked=!on);
+};
+document.getElementById('chatSend').onclick=chatSend;
+chatIn.addEventListener('keydown',e=>{if(e.key==='Enter')chatSend();});
+setInterval(chatPoll,2500); chatPoll();
+
+/* ---- Content Desk deck ---- */
+let deskItems=[], deskMediaList=[], deckIdx=0, deskExpanded=false, deskArt=false, deskFocusId=null;
+const deckEl=document.getElementById('deck');
+function deckPool(){ return deskItems.filter(i=>i.status==='new'||i.status==='edited'); }
+function curItem(){
+  if(deskFocusId){ const it=deskItems.find(i=>i.id===deskFocusId); if(it) return it; deskFocusId=null; }
+  return deckPool()[deckIdx];
+}
+function mediaRow(it){
+  const attached=it.media||[];
+  const chips=deskMediaList.map((m,mi)=>{
+    const on=attached.includes(m.name);
+    const other=!on && deskItems.find(o=>o.id!==it.id && (o.media||[]).includes(m.name) && ['scheduled','queued','new','edited'].includes(o.status));
+    const tag=other?` <i style="font-size:9px;color:var(--quant)">📌 ${esc((other.title||'').slice(0,14))}</i>`:'';
+    return `<span class="chip ${on?'done':''}" onclick="deskToggleMediaIdx(${mi})"
+      style="cursor:pointer${on?'':';color:var(--muted)'}">${m.video?'🎬':'🖼'} ${esc(m.name)}${on?' ✓':''}${tag}
+      <b onclick="event.stopPropagation();deskDeleteMediaIdx(${mi})" title="delete from inbox"
+        style="margin-left:4px;color:var(--rec);cursor:pointer">✕</b></span>`;
+  }).join('') || `<span style="font-size:11px;color:var(--dim)">inbox empty — upload here or save files to <code>Content Office/MEDIA_INBOX</code></span>`;
+  return `<div style="margin-top:10px;font-size:11px;color:var(--dim);display:flex;gap:8px;align-items:center;flex-wrap:wrap">📎 ATTACH MEDIA (tap to toggle; max 4)
+    <button class="go" onclick="document.getElementById('deskFile').click()" style="font-size:9px">⬆ Upload</button>
+    <button onclick="deskResync()" style="font-size:9px" title="rescan the iCloud inbox folder">↻ rescan</button>
+    <span id="deskUpMsg" style="color:var(--quant)"></span></div>
+    <div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:6px">${chips}</div>`;
+}
+function deskDeleteMediaIdx(mi){
+  const m=deskMediaList[mi]; if(!m) return;
+  if(!confirm(`Delete ${m.name} from the media inbox?\n(It moves to MEDIA_INBOX/trash — recoverable.)`)) return;
+  deskMediaList.splice(mi,1);
+  deskItems.forEach(i=>{ if(i.media) i.media=i.media.filter(n=>n!==m.name); });
+  fetch(LIVE+'/desk/action',{method:'POST',headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({action:'delete_media',name:m.name})}).catch(()=>{});
+  deskRender();
+}
+async function deskUpload(files){
+  const msg=()=>document.getElementById('deskUpMsg');
+  for(const f of files){
+    if(f.size>30*1024*1024){ alert(`${f.name} is over 30MB — save it to the MEDIA_INBOX iCloud folder instead.`); continue; }
+    const buf=new Uint8Array(await f.arrayBuffer());
+    const CHUNK=75*1024, total=Math.max(1,Math.ceil(buf.length/CHUNK));
+    const b64=i=>{ let bin=''; const s=buf.subarray(i*CHUNK,(i+1)*CHUNK);
+      for(let j=0;j<s.length;j++) bin+=String.fromCharCode(s[j]); return btoa(bin); };
+    let sent=0, failed=false;
+    // last chunk is the "commit" — send it alone after all others land
+    for(let i=0;i<total-1 && !failed;i+=6){
+      const batch=[];
+      for(let k=i;k<Math.min(i+6,total-1);k++)
+        batch.push(fetch(LIVE+'/desk/upload',{method:'POST',headers:{'Content-Type':'application/json'},
+          body:JSON.stringify({name:f.name,seq:k,total,data:b64(k)})}).then(r=>{if(!r.ok)failed=true;}));
+      await Promise.all(batch);
+      sent=Math.min(i+6,total-1);
+      if(msg())msg().textContent=`⬆ ${f.name}: ${Math.round((sent/total)*100)}%`;
+    }
+    if(!failed){
+      const r=await fetch(LIVE+'/desk/upload',{method:'POST',headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({name:f.name,seq:total-1,total,data:b64(total-1)})});
+      if(!r.ok) failed=true;
+    }
+    if(failed){ if(msg())msg().textContent=`⚠ upload failed (${f.name})`; return; }
+    if(msg())msg().textContent=`⏳ ${f.name} landing in the inbox…`;
+  }
+  let tries=0; const startCount=deskMediaList.length;
+  const wait=setInterval(async()=>{
+    await deskLoad(false);
+    if(deskMediaList.length>startCount||++tries>10){
+      clearInterval(wait);
+      const m=document.getElementById('deskUpMsg');
+      if(m) m.textContent = deskMediaList.length>startCount ? '✅ in the inbox' : '⚠ not landed yet — tap ↻ rescan in a moment';
+    }
+  },3000);
+}
+/* alignment-number posting times (Captain's cadence) */
+const ALIGN=[[9,9],[10,10],[11,11],[12,12],[13,11],[14,22],[15,33],[16,44],[17,55],[19,7],[20,8],[21,9],[22,10],[23,11]];
+function alignLabel(h,m){ const ap=h<12?'AM':'PM'; const h12=((h+11)%12)+1; return `${h12}:${String(m).padStart(2,'0')} ${ap}`; }
+function takenWhens(exceptId){
+  return new Set(deskItems.filter(i=>i.status==='scheduled'&&i.when&&i.id!==exceptId).map(i=>i.when));
+}
+function alignSlots(it){
+  const now=Date.now(), taken=takenWhens(it.id), out=[];
+  for(const day of [0,1]){
+    for(const [h,m] of ALIGN){
+      const d=new Date(); d.setDate(d.getDate()+day); d.setHours(h,m,0,0);
+      const t=d.getTime();
+      if(t<now+120000) continue;
+      out.push({t, taken:taken.has(t),
+        label:`${day===0?'Today':'Tomorrow'} ${alignLabel(h,m)}${taken.has(t)?' · taken':''}`});
+    }
+  }
+  // default: first FREE slot in the draft's preferred half (morning=before 1:11 PM), else first free
+  const pref=it.slot==='morning' ? out.find(s=>!s.taken&&new Date(s.t).getHours()<13)
+                                 : out.find(s=>!s.taken&&new Date(s.t).getHours()>=13);
+  const def=(pref||out.find(s=>!s.taken)||out[0]);
+  return {out, def: def?def.t:null};
+}
+function alignPicker(it){
+  const cur=it.when||null;
+  const {out,def}=alignSlots(it);
+  const sel=cur&&!out.some(s=>s.t===cur)
+    ? `<option value="${cur}" selected>${new Date(cur).toLocaleString([], {month:'short',day:'numeric',hour:'2-digit',minute:'2-digit'})} (current)</option>` : '';
+  return `<select id="deskWhen" onchange="document.getElementById('deskWhenCustom').style.display=this.value==='custom'?'inline-block':'none'"
+    style="background:rgba(3,6,16,.7);color:var(--txt);border:1px solid var(--edge);border-radius:8px;padding:7px 9px;font-size:12px">
+    ${sel}${out.map(s=>`<option value="${s.t}" ${(cur?s.t===cur:s.t===def)?'selected':''} ${s.taken?'disabled':''}>${s.label}</option>`).join('')}
+    <option value="custom">custom…</option></select>
+    <input type="datetime-local" id="deskWhenCustom" style="display:none;background:rgba(3,6,16,.7);color:var(--txt);border:1px solid var(--edge);border-radius:8px;padding:6px">`;
+}
+async function deskAct(id,action,extra){
+  try{
+    await fetch(LIVE+'/desk/action',{method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify(Object.assign({id,action},extra||{}))});
+  }catch(e){}
+  await deskLoad(false);
+}
+function deskRender(){
+  const pool=deckPool();
+  document.getElementById('deskCount').textContent =
+    deskFocusId? 'editing scheduled post' :
+    (pool.length? `${Math.min(deckIdx+1,pool.length)} / ${pool.length} to review` : 'all clear');
+  if(!pool.length && !deskFocusId){
+    deckEl.innerHTML='<div style="color:var(--dim);font-size:12px;text-align:center;padding:16px">Deck clear — the forge refills at 6:10 AM &amp; 7:25 PM. 🔥</div>';
+  }else{
+    if(!deskFocusId && deckIdx>=pool.length) deckIdx=0;
+    const it=curItem();
+    const isSched=it.status==='scheduled';
+    const chips=`<span class="chip done" style="border-color:var(--quant);color:var(--quant)">${esc(it.brand||'—')}</span>
+      <span class="chip">${esc(it.slot||'any')}</span><span class="chip">${esc(it.channel||'')}</span>`
+      + (it.mj?'<span class="chip">🎨</span>':'') + (it.grok?'<span class="chip">🎬</span>':'');
+    let inner=`<div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-bottom:8px">${chips}</div>
+      <div style="font-family:Orbitron;font-size:13px;margin-bottom:6px">${esc(it.title)}</div>
+      <div style="font-size:13px;line-height:1.5;color:#cdd6f0;font-style:italic">${esc(it.nugget||'')}</div>`;
+    if(deskExpanded||deskFocusId){
+      inner+=`<textarea id="deskBody" style="width:100%;min-height:260px;margin-top:10px;font-family:Inter;font-size:13px;line-height:1.55">${esc(it.body||'')}</textarea>`
+        + mediaRow(it)
+        + `<div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:10px;align-items:center">
+          <button class="go" onclick="deskPost()">🚀 Post now</button>
+          ${alignPicker(it)}
+          <button class="gold" style="border-color:var(--quant);color:var(--quant)" onclick="deskSchedule()">📅 ${isSched?'Update schedule':'Schedule'}</button>
+          ${isSched?'<button class="warn" style="border-color:var(--rec);color:var(--rec)" onclick="deskUnschedule()">🛑 Unschedule</button>':''}
+          <button onclick="deskSaveEdit()">💾 Save edit</button>
+          <button onclick="deskArt=!deskArt;deskRender()">🎨 Prompts</button>
+          ${isSched?'<button onclick="deskFocusId=null;deskExpanded=false;deskRender()" style="font-size:9px">← back to deck</button>'
+                   :'<button class="warn" style="border-color:var(--rec);color:var(--rec)" onclick="deskPass()">⏭ Pass</button>'}
+        </div>`
+        + (isSched?`<div style="margin-top:6px;font-size:11px;color:var(--quant)">📅 Scheduled — body or media changes take effect when you tap <b>Update schedule</b> (or Post now).</div>`:'');
+      if(deskArt){
+        inner+=`<div style="margin-top:10px;font-size:11px;color:var(--muted)">MIDJOURNEY — tap to copy</div>
+          <pre onclick="navigator.clipboard.writeText(this.textContent)" style="white-space:pre-wrap;background:rgba(3,6,16,.7);border:1px solid var(--edge);border-radius:8px;padding:8px;font-size:11px;cursor:copy">${esc(it.mj||'(none)')}</pre>
+          <div style="font-size:11px;color:var(--muted)">GROK IMAGINE — tap to copy</div>
+          <pre onclick="navigator.clipboard.writeText(this.textContent)" style="white-space:pre-wrap;background:rgba(3,6,16,.7);border:1px solid var(--edge);border-radius:8px;padding:8px;font-size:11px;cursor:copy">${esc(it.grok||'(none)')}</pre>`;
+      }
+    }else{
+      inner+=`<div style="display:flex;gap:8px;margin-top:12px">
+        <button class="warn" style="flex:1;border-color:var(--rec);color:var(--rec)" onclick="deskPass()">⏭ Pass</button>
+        <button class="go" style="flex:2" onclick="deskExpanded=true;deskRender()">📖 Read &amp; publish</button>
+      </div>
+      <div style="display:flex;justify-content:space-between;margin-top:8px">
+        <button onclick="deckIdx=Math.max(0,deckIdx-1);deskExpanded=false;deskRender()" style="font-size:9px">← prev</button>
+        <button onclick="deckIdx=(deckIdx+1)%Math.max(deckPool().length,1);deskExpanded=false;deskRender()" style="font-size:9px">next →</button>
+      </div>`;
+    }
+    deckEl.innerHTML=inner;
+  }
+  /* status strip: everything in flight or done */
+  const strip=deskItems.filter(i=>!['new','edited'].includes(i.status));
+  document.getElementById('deskStrip').innerHTML=strip.map(i=>{
+    const r=i.result||{};
+    if(i.status==='published'&&r.url) return `<a class="chip done" href="${r.url}" target="_blank" style="text-decoration:none">✅ ${esc(i.title.slice(0,26))} ↗</a>`;
+    if(i.status==='error') return `<span class="chip bad" title="${esc(r.error||'')}">⚠ ${esc(i.title.slice(0,26))}</span>`;
+    if(i.status==='scheduled') return `<span class="chip" onclick="deskFocusIdx(${deskItems.indexOf(i)})" style="border-color:var(--quant);color:var(--quant);cursor:pointer" title="tap to edit / add media / unschedule">📅 ${esc(i.title.slice(0,22))}${(i.media&&i.media.length)?' 📎'+i.media.length:''} · ${i.when?new Date(i.when).toLocaleString([], {month:'short',day:'numeric',hour:'2-digit',minute:'2-digit'}):''}</span>`;
+    if(i.status==='queued') return `<span class="chip">⏳ posting ${esc(i.title.slice(0,22))}…</span>`;
+    if(i.status==='skipped') return `<span class="chip" onclick="deskAct(deskItems[${deskItems.indexOf(i)}].id,'unskip')" style="cursor:pointer" title="tap to restore">⏭ ${esc(i.title.slice(0,22))}</span>`;
+    return '';
+  }).join('');
+}
+function deskPass(){ const it=curItem(); if(it){ deskExpanded=false; deskAct(it.id,'skip'); } }
+function deskSaveEdit(){ const it=curItem(); if(it) deskAct(it.id,'save_edit',{body:document.getElementById('deskBody').value}); }
+function deskFocusIdx(idx){ const it=deskItems[idx]; if(it){ deskFocusId=it.id; deskArt=false; deskRender(); } }
+function deskToggleMediaIdx(mi){ const m=deskMediaList[mi]; if(m) deskToggleMedia(m.name); }
+function deskToggleMedia(name){
+  const it=curItem(); if(!it) return;
+  let m=(it.media||[]).slice();
+  if(m.includes(name)) m=m.filter(x=>x!==name);
+  else{ if(m.length>=4){alert('max 4 media per post');return;} m.push(name); }
+  it.media=m;
+  deskAct(it.id,'set_media',{media:m});
+}
+function deskPost(){
+  const it=curItem(); if(!it) return;
+  const nMedia=(it.media||[]).length;
+  if(!confirm(`Post to X now${nMedia?` with ${nMedia} media`:''}?\n\n${it.title}`)) return;
+  deskExpanded=false; deskFocusId=null;
+  deskAct(it.id,'publish',{body:document.getElementById('deskBody')?document.getElementById('deskBody').value:null});
+}
+function deskSchedule(){
+  const it=curItem(); if(!it) return;
+  const sel=document.getElementById('deskWhen').value;
+  let when;
+  if(sel==='custom'){
+    const v=document.getElementById('deskWhenCustom').value;
+    if(!v){alert('pick a custom time');return;}
+    when=new Date(v).getTime();
+  }else{
+    when=parseInt(sel,10);
+    if(!when){alert('pick a time');return;}
+    if(takenWhens(it.id).has(when)){alert('that alignment slot is taken — pick a free one');return;}
+  }
+  deskExpanded=false; deskFocusId=null;
+  deskAct(it.id,'schedule',{when, body:document.getElementById('deskBody')?document.getElementById('deskBody').value:null});
+}
+function deskUnschedule(){
+  const it=curItem(); if(!it) return;
+  deskFocusId=null; deskExpanded=false;
+  deskAct(it.id,'unschedule');
+}
+function deskResync(){
+  deskAct(null,'resync');
+  document.getElementById('deskCount').textContent='rescanning inbox…';
+  setTimeout(()=>deskLoad(false),8000);
+}
+async function deskLoad(resetIdx){
+  try{
+    const d=await (await fetch(LIVE+'/desk/list')).json();
+    deskItems=d.items||[];
+    deskMediaList=d.media||[];
+    if(resetIdx!==false) deckIdx=0;
+    deskRender();
+  }catch(e){ deckEl.innerHTML='<div style="color:var(--rec);font-size:12px">deck offline</div>'; }
+}
+/* swipe: left = pass, right = read */
+let touchX=null;
+deckEl.addEventListener('touchstart',e=>{touchX=e.touches[0].clientX;},{passive:true});
+deckEl.addEventListener('touchend',e=>{
+  if(touchX===null||deskExpanded) return;
+  const dx=e.changedTouches[0].clientX-touchX; touchX=null;
+  if(dx<-60) deskPass();
+  else if(dx>60){ deskExpanded=true; deskRender(); }
+},{passive:true});
+setInterval(()=>deskLoad(false),15000); deskLoad();
+</script>
+</body>
+</html>
